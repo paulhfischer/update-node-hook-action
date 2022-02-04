@@ -1,0 +1,33 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.1.0
+    hooks:
+      - id: check-json
+      - id: check-yaml
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: end-of-file-fixer
+        exclude: (^lib|^dist)
+      - id: mixed-line-ending
+        args: [--fix=lf]
+  - repo: https://github.com/paulhfischer/eslint-config-typescript
+    rev: v1.1.0
+    hooks:
+      - id: lint
+        exclude: (^node_modules|^lib|^dist)
+  - repo: https://github.com/paulhfischer/prettier-config
+    rev: v1.1.0
+    hooks:
+      - id: lint
+  - repo: local
+    hooks:
+      - id: build
+        name: build
+        entry: npm run build
+        language: node
+        pass_filenames: false
+      - id: package
+        name: package
+        entry: npm run package
+        language: node
+        pass_filenames: false
