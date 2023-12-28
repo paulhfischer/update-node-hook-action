@@ -6,5 +6,5 @@ inputs:
     required: true
     description: The NPM auth token to use for publishing
 runs:
-  using: 'node16'
+  using: 'node20'
   main: 'dist/index.js'

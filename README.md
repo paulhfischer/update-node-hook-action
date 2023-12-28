@@ -20,7 +20,7 @@ jobs:
     update:
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v2
+            - uses: actions/checkout@v4
             - uses: paulhfischer/update-node-hook-action@v1
               with:
                   npm-token: ${{ secrets.NPM_TOKEN }}
