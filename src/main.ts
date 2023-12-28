@@ -1,6 +1,6 @@
 import { endGroup, getInput, info, setFailed, startGroup } from '@actions/core';
 import { exec } from '@actions/exec';
-import npmPublish from '@jsdevtools/npm-publish';
+import { npmPublish } from '@jsdevtools/npm-publish';
 import { readFileSync, writeFileSync } from 'fs';
 import { mkdtemp } from 'fs/promises';
 import yaml from 'js-yaml';
