@@ -1,6 +1,6 @@
 {
     "name": "update-node-hook-action",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "private": true,
     "description": "Action to automatically update node-based pre-commit hooks.",
     "main": "lib/main.js",

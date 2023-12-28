@@ -1,7 +1,7 @@
 import { endGroup, getInput, info, setFailed, startGroup } from '@actions/core';
 import { exec } from '@actions/exec';
 import { npmPublish } from '@jsdevtools/npm-publish';
-import { readFileSync, writeFileSync } from 'fs';
+import { existsSync, readFileSync, statSync, writeFileSync } from 'fs';
 import { mkdtemp } from 'fs/promises';
 import yaml from 'js-yaml';
 import { tmpdir } from 'os';
@@ -32,6 +32,24 @@ const prettyJson = (value: any): string => {
     return JSON.stringify(value, null, 4);
 };
 
+const installPackages = async (
+    packages: Array<string>,
+    save: boolean,
+    nodeenv: string,
+): Promise<void> => {
+    const args = ['install', ...packages, '--strict-peer-deps', '--no-fund', '--no-audit'];
+    if (save) args.push('--save-prod', '--save-exact');
+
+    await exec('npm', args, { cwd: nodeenv });
+};
+
+const isInstalled = (pkg: string, nodeenv: string): boolean => {
+    return (
+        existsSync(path.join(nodeenv, 'node_modules', pkg)) &&
+        statSync(path.join(nodeenv, 'node_modules', pkg)).isDirectory()
+    );
+};
+
 const getPackageJson = (directory: string, pkg?: string): PackageJsonType => {
     const file = pkg
         ? path.join(directory, 'node_modules', pkg, 'package.json')
@@ -40,13 +58,27 @@ const getPackageJson = (directory: string, pkg?: string): PackageJsonType => {
     return JSON.parse(readFileSync(file, 'utf-8'));
 };
 
-const getPeerDependencies = (pkg: string, environment: string): DependenciesType => {
-    return Object.keys(getPackageJson(environment, pkg).peerDependencies || {}).reduce(
-        (peerDependencies, peerDependency) => ({
-            ...peerDependencies,
-            [peerDependency]: getPackageJson(environment, peerDependency).version,
-            ...getPeerDependencies(peerDependency, environment),
-        }),
+const getPeerDependencies = (pkg: string, nodeenv: string): DependenciesType => {
+    if (!isInstalled(pkg, nodeenv)) {
+        info(`Skipping peer-dependencies of ${pkg}, as it is not installed.`);
+        return {};
+    }
+
+    return Object.keys(getPackageJson(nodeenv, pkg).peerDependencies || {}).reduce(
+        (peerDependencies, peerDependency) => {
+            if (!isInstalled(peerDependency, nodeenv)) {
+                info(
+                    `Skipping peer-dependency ${peerDependency} of ${pkg}, as it is not installed.`,
+                );
+                return peerDependencies;
+            }
+
+            return {
+                ...peerDependencies,
+                [peerDependency]: getPackageJson(nodeenv, peerDependency).version,
+                ...getPeerDependencies(peerDependency, nodeenv),
+            };
+        },
         {},
     );
 };
@@ -122,17 +154,7 @@ async function main() {
     endGroup();
 
     startGroup('install latest version of peer dependencies listed in package.json');
-    await exec(
-        'npm',
-        [
-            'install',
-            ...Object.keys(oldPeerDependencies),
-            '--save-prod',
-            '--save-exact',
-            '--strict-peer-deps',
-        ],
-        { cwd: nodeenv },
-    );
+    await installPackages(Object.keys(oldPeerDependencies), true, nodeenv);
     const newPeerDependencies = getPackageJson(nodeenv).dependencies || {};
     info(prettyJson(newPeerDependencies));
     endGroup();
