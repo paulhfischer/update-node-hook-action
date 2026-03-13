@@ -16,14 +16,15 @@ on:
     schedule:
         - cron: '0 6 * * 1'
 
+permissions:
+    contents: write
+    id-token: write
+
 jobs:
     update:
         runs-on: ubuntu-latest
         steps:
-            - uses: actions/checkout@v4
-            - uses: paulhfischer/update-node-hook-action@v1
-              with:
-                  npm-token: ${{ secrets.NPM_TOKEN }}
+            - uses: paulhfischer/update-node-hook-action@v2
 ```
 
 #### Local
@@ -32,5 +33,5 @@ You can also update the `package.json` and `pre-commit-hooks.yaml` files locally
 
 ```
 npm install --prefix path/to/this/repo
-node /path/to/this/repo/lib/main.js --no-commit
+node /path/to/this/repo/dist/index.js --no-commit
 ```
