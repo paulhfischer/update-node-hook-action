@@ -1,6 +1,5 @@
-import { endGroup, getInput, info, setFailed, startGroup } from '@actions/core';
+import { endGroup, info, setFailed, startGroup } from '@actions/core';
 import { exec } from '@actions/exec';
-import { npmPublish } from '@jsdevtools/npm-publish';
 import { existsSync, readFileSync, statSync, writeFileSync } from 'fs';
 import { mkdtemp } from 'fs/promises';
 import yaml from 'js-yaml';
@@ -139,8 +138,7 @@ const createHookFile = (peerDependencies: DependenciesType, environment: string)
 async function main() {
     startGroup('get setting');
     const noCommit = argv.includes('--no-commit');
-    const npmToken = getInput('npm-token', { required: !noCommit });
-    info(prettyJson({ npmToken: '***', noCommit }));
+    info(prettyJson({ noCommit }));
     endGroup();
 
     startGroup('create temporary environment for package installation');
@@ -217,7 +215,7 @@ async function main() {
         .pushTags();
 
     startGroup('publish to npm');
-    await npmPublish({ token: npmToken });
+    await exec('npm', ['publish']);
     endGroup();
 
     info(`Bumped package version (${oldVersion} → ${newVersion}):`);

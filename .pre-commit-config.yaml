@@ -1,6 +1,6 @@
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
+    rev: v6.0.0
     hooks:
       - id: check-json
       - id: check-yaml
@@ -11,12 +11,12 @@ repos:
       - id: mixed-line-ending
         args: [--fix=lf]
   - repo: https://github.com/paulhfischer/eslint-config-typescript
-    rev: v1.1.0
+    rev: v1.29.1
     hooks:
       - id: lint
         exclude: (^node_modules|^lib|^dist)
   - repo: https://github.com/paulhfischer/prettier-config
-    rev: v1.10.0
+    rev: v1.13.0
     hooks:
       - id: lint
   - repo: local
