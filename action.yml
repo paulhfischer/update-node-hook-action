@@ -1,10 +1,15 @@
 name: update-node-hook
 description: Action to automatically update node-based pre-commit hooks.
 author: Paul Fischer <paul.fischer@mailbox.org>
-inputs:
-  npm-token:
-    required: true
-    description: The NPM auth token to use for publishing
 runs:
-  using: 'node20'
-  main: 'dist/index.js'
+  using: 'composite'
+  steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '24'
+        registry-url: 'https://registry.npmjs.org'
+    - run: npm install -g npm@latest
+      shell: bash
+    - run: node ${{ github.action_path }}/dist/index.js
+      shell: bash
