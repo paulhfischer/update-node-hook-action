@@ -1,45 +1,66 @@
 import { endGroup, info, setFailed, startGroup } from '@actions/core';
-import { exec } from '@actions/exec';
+import { exec, getExecOutput } from '@actions/exec';
 import { existsSync, readFileSync, statSync, writeFileSync } from 'fs';
 import { mkdtemp } from 'fs/promises';
 import yaml from 'js-yaml';
 import { tmpdir } from 'os';
 import path from 'path';
 import { argv, cwd } from 'process';
-import simpleGit from 'simple-git';
+import { simpleGit } from 'simple-git';
 
 type DependenciesType = Record<string, string>;
 
-type PackageJsonType = {
+interface PackageJsonType {
+    name: string;
     version: string;
     peerDependencies?: DependenciesType;
     dependencies?: DependenciesType;
-};
+}
+
 type HooksType = [
     {
-        additional_dependencies: Array<string>;
+        additional_dependencies: string[];
     },
 ];
 
-type ChangesType = Array<{
+type ChangesType = {
     name: string;
     oldVersion: string;
     newVersion: string;
-}>;
+}[];
 
-const prettyJson = (value: any): string => {
+const prettyJson = (value: unknown): string => {
     return JSON.stringify(value, null, 4);
 };
 
 const installPackages = async (
-    packages: Array<string>,
+    packages: string[],
     save: boolean,
     nodeenv: string,
 ): Promise<void> => {
-    const args = ['install', ...packages, '--strict-peer-deps', '--no-fund', '--no-audit'];
+    const args = [
+        'install',
+        ...packages,
+        '--strict-peer-deps',
+        '--ignore-scripts',
+        '--no-fund',
+        '--no-audit',
+    ];
     if (save) args.push('--save-prod', '--save-exact');
 
     await exec('npm', args, { cwd: nodeenv });
+};
+
+const isPublished = async (name: string, version: string): Promise<boolean> => {
+    const { exitCode, stdout, stderr } = await getExecOutput(
+        'npm',
+        ['view', `${name}@${version}`, 'version'],
+        { ignoreReturnCode: true, silent: true },
+    );
+    if (exitCode === 0) return stdout.trim() === version;
+    if (stderr.includes('E404')) return false;
+
+    throw new Error(`Could not check whether ${name}@${version} is published:\n${stderr}`);
 };
 
 const isInstalled = (pkg: string, nodeenv: string): boolean => {
@@ -54,7 +75,7 @@ const getPackageJson = (directory: string, pkg?: string): PackageJsonType => {
         ? path.join(directory, 'node_modules', pkg, 'package.json')
         : path.join(directory, 'package.json');
 
-    return JSON.parse(readFileSync(file, 'utf-8'));
+    return JSON.parse(readFileSync(file, 'utf-8')) as PackageJsonType;
 };
 
 const getPeerDependencies = (pkg: string, nodeenv: string): DependenciesType => {
@@ -63,7 +84,7 @@ const getPeerDependencies = (pkg: string, nodeenv: string): DependenciesType => 
         return {};
     }
 
-    return Object.keys(getPackageJson(nodeenv, pkg).peerDependencies || {}).reduce(
+    return Object.keys(getPackageJson(nodeenv, pkg).peerDependencies ?? {}).reduce(
         (peerDependencies, peerDependency) => {
             if (!isInstalled(peerDependency, nodeenv)) {
                 info(
@@ -147,13 +168,13 @@ async function main() {
     endGroup();
 
     startGroup('get current peer dependencies from package.json');
-    const oldPeerDependencies = getPackageJson(cwd()).peerDependencies || {};
+    const oldPeerDependencies = getPackageJson(cwd()).peerDependencies ?? {};
     info(prettyJson(oldPeerDependencies));
     endGroup();
 
     startGroup('install latest version of peer dependencies listed in package.json');
     await installPackages(Object.keys(oldPeerDependencies), true, nodeenv);
-    const newPeerDependencies = getPackageJson(nodeenv).dependencies || {};
+    const newPeerDependencies = getPackageJson(nodeenv).dependencies ?? {};
     info(prettyJson(newPeerDependencies));
     endGroup();
 
@@ -174,51 +195,69 @@ async function main() {
     createHookFile(newPeerDependencies, nodeenv);
     endGroup();
 
+    const git = simpleGit();
+
     startGroup('check for file changes');
-    const fileChanges = Boolean(await simpleGit().diff(['.pre-commit-hooks.yaml', 'package.json']));
+    const fileChanges = Boolean(await git.diff(['.pre-commit-hooks.yaml', 'package.json']));
     info(fileChanges.toString());
     endGroup();
 
-    if (!fileChanges) {
+    startGroup('check whether current version is released');
+    const { name, version: currentVersion } = getPackageJson(cwd());
+    const published = await isPublished(name, currentVersion);
+    const tagged = (await git.tags()).all.includes(`v${currentVersion}`);
+    info(prettyJson({ version: currentVersion, published, tagged }));
+    endGroup();
+
+    if (!fileChanges && published) {
         info('Everything up to date.');
         return;
     }
 
     if (noCommit) {
-        info('Updated files.');
+        info(fileChanges ? 'Updated files.' : `Version ${currentVersion} is not published yet.`);
         return;
     }
 
-    startGroup('get current package version');
-    const oldVersion = getPackageJson(cwd()).version;
-    info(oldVersion);
-    endGroup();
+    await git
+        .addConfig('user.name', 'github-actions[bot]')
+        .addConfig('user.email', '41898282+github-actions[bot]@users.noreply.github.com');
 
-    startGroup('bump version');
-    await exec('npm', [
-        'version',
-        versionChanges.length ? 'minor' : 'patch',
-        '--no-git-tag-version',
-    ]);
-    const newVersion = getPackageJson(cwd()).version;
-    info(newVersion);
-    endGroup();
+    let version = currentVersion;
+    if (fileChanges) {
+        // keep versions that were bumped manually and haven't been released yet
+        if (published || tagged) {
+            startGroup('bump version');
+            await exec('npm', [
+                'version',
+                versionChanges.length ? 'minor' : 'patch',
+                '--no-git-tag-version',
+            ]);
+            version = getPackageJson(cwd()).version;
+            info(version);
+            endGroup();
+        }
 
-    info('commit and push changes');
-    await simpleGit()
-        .addConfig('user.name', 'GitHub Actions')
-        .addConfig('user.email', 'actions@github.com')
-        .add(['.pre-commit-hooks.yaml', 'package.json'])
-        .commit('autoupdate')
-        .addAnnotatedTag(`v${newVersion}`, `Version ${newVersion}`)
-        .push()
-        .pushTags();
+        info('commit and push changes');
+        await git
+            .add(['.pre-commit-hooks.yaml', 'package.json'])
+            .commit('autoupdate')
+            .addAnnotatedTag(`v${version}`, `Version ${version}`)
+            .push()
+            .pushTags();
+    } else if (!tagged) {
+        info('tag manually bumped version');
+        await git.addAnnotatedTag(`v${version}`, `Version ${version}`).pushTags();
+    } else {
+        info('retry publishing of tagged version');
+        await git.checkout(`v${version}`);
+    }
 
     startGroup('publish to npm');
     await exec('npm', ['publish']);
     endGroup();
 
-    info(`Bumped package version (${oldVersion} → ${newVersion}):`);
+    info(`Published version ${version}.`);
 }
 
-main().catch((error) => setFailed(error.message));
+main().catch((error: unknown) => setFailed(error instanceof Error ? error.message : String(error)));

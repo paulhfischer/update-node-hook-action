@@ -1,41 +1,30 @@
 {
     "name": "update-node-hook-action",
-    "version": "2.0.0",
+    "version": "2.1.0",
     "private": true,
     "description": "Action to automatically update node-based pre-commit hooks.",
-    "main": "lib/main.js",
+    "main": "dist/index.js",
     "scripts": {
-        "build": "tsc",
-        "package": "esbuild src/main.ts --bundle --platform=node --target=node22 --minify --sourcemap --outfile=dist/index.js"
+        "typecheck": "tsc",
+        "package": "esbuild src/main.ts --bundle --platform=node --target=node24 --minify --sourcemap --outfile=dist/index.js"
     },
     "author": "Paul Fischer <paul.fischer@mailbox.org>",
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/paulhfischer/update-node-hook-action"
+        "url": "git+https://github.com/paulhfischer/update-node-hook-action.git"
     },
     "license": "GPL-3.0",
-    "eslintConfig": {
-        "extends": [
-            "@paulhfischer/eslint-config-typescript"
-        ]
-    },
     "prettier": "@paulhfischer/prettier-config",
     "dependencies": {
-        "@actions/core": "^3.0.0",
+        "@actions/core": "^3.0.1",
         "@actions/exec": "^3.0.0",
         "js-yaml": "^4.1.0",
-        "simple-git": "^3.21.0"
+        "simple-git": "^3.27.0"
     },
     "devDependencies": {
-        "@paulhfischer/eslint-config-typescript": "^1.1.0",
         "@types/js-yaml": "^4.0.9",
-        "@types/node": "^25.5.0",
-        "esbuild": "^0.25.0",
-        "typescript": "^5.9.3"
-    },
-    "files": [
-        "src",
-        "lib",
-        "dist"
-    ]
+        "@types/node": "^24.19.1",
+        "esbuild": "^0.28.2",
+        "typescript": "^6.0.3"
+    }
 }

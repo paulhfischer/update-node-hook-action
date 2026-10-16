@@ -1,33 +1,45 @@
+minimum_pre_commit_version: 4.7.0
+exclude: ^dist/
 repos:
+  - repo: meta
+    hooks:
+      - id: check-hooks-apply
+      - id: check-useless-excludes
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
-      - id: check-json
-      - id: check-yaml
-      - id: check-merge-conflict
+      - id: check-added-large-files
       - id: check-case-conflict
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-yaml
       - id: end-of-file-fixer
-        exclude: (^lib|^dist)
       - id: mixed-line-ending
         args: [--fix=lf]
+      - id: trailing-whitespace
+  - repo: https://github.com/python-jsonschema/check-jsonschema
+    rev: 0.38.2
+    hooks:
+      - id: check-github-actions
   - repo: https://github.com/paulhfischer/eslint-config-typescript
-    rev: v1.29.1
+    rev: v2.0.0
     hooks:
       - id: lint
-        exclude: (^node_modules|^lib|^dist)
   - repo: https://github.com/paulhfischer/prettier-config
-    rev: v1.13.0
+    rev: v2.0.0
     hooks:
       - id: lint
   - repo: local
     hooks:
-      - id: build
-        name: build
-        entry: npm run build
+      - id: typecheck
+        name: typecheck
+        entry: npm run typecheck
         language: node
         pass_filenames: false
+        files: ^(src/|package\.json$|tsconfig\.json$)
       - id: package
         name: package
         entry: npm run package
         language: node
         pass_filenames: false
+        files: ^(src/|package\.json$)
