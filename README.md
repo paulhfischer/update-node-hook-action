@@ -6,7 +6,7 @@ Once a week, it installs the latest versions of all `peerDependencies` listed in
 of a hook repository and writes them (and their peer-dependencies) to the `package.json` and the
 `additional_dependencies` of the `.pre-commit-hooks.yaml`. If anything changed, it bumps the version
 (minor for updated peer-dependencies, patch otherwise), commits, tags and publishes the package to
-npm. Versions that were bumped manually or failed to publish are published on the next run.
+npm. Versions that were bumped manually or failed to publish are published on the next run (without bumping the version again).
 
 It also updates the revisions in the repository's `.pre-commit-config.yaml` (disable with
 `pre-commit-autoupdate: false`).

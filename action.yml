@@ -23,7 +23,6 @@ runs:
     - if: inputs.pre-commit-autoupdate == 'true'
       run: |
         [ -f .pre-commit-config.yaml ] || exit 0
-        git checkout --quiet "${GITHUB_REF_NAME}"
         pipx run pre-commit autoupdate
         git diff --quiet -- .pre-commit-config.yaml && exit 0
         git add .pre-commit-config.yaml

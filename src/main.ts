@@ -224,9 +224,10 @@ async function main() {
         .addConfig('user.email', '41898282+github-actions[bot]@users.noreply.github.com');
 
     let version = currentVersion;
+    let tagExists = tagged;
     if (fileChanges) {
-        // keep versions that were bumped manually and haven't been released yet
-        if (published || tagged) {
+        // keep versions that were bumped manually or failed to publish
+        if (published) {
             startGroup('bump version');
             await exec('npm', [
                 'version',
@@ -234,24 +235,22 @@ async function main() {
                 '--no-git-tag-version',
             ]);
             version = getPackageJson(cwd()).version;
+            tagExists = false;
             info(version);
             endGroup();
         }
 
-        info('commit and push changes');
-        await git
-            .add(['.pre-commit-hooks.yaml', 'package.json'])
-            .commit('autoupdate')
-            .addAnnotatedTag(`v${version}`, `Version ${version}`)
-            .push()
-            .pushTags();
-    } else if (!tagged) {
-        info('tag manually bumped version');
-        await git.addAnnotatedTag(`v${version}`, `Version ${version}`).pushTags();
-    } else {
-        info('retry publishing of tagged version');
-        await git.checkout(`v${version}`);
+        info('commit changes');
+        await git.add(['.pre-commit-hooks.yaml', 'package.json']).commit('autoupdate');
     }
+
+    if (!tagExists) {
+        info('tag version');
+        await git.addAnnotatedTag(`v${version}`, `Version ${version}`);
+    }
+
+    info('push changes');
+    await git.push().pushTags();
 
     startGroup('publish to npm');
     await exec('npm', ['publish']);
